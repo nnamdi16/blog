@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import TagEntity from './tag.entity';
@@ -12,8 +17,27 @@ export class TagService {
   ) {}
 
   async create(payload: TagDto) {
-    const tag = this.tagRepository.create({ ...payload });
-    return await this.tagRepository.save(tag);
+    try {
+      const isExistingTag = await this.findByName(payload);
+      if (isExistingTag) {
+        throw new BadRequestException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Tag already exist',
+        });
+      }
+      const tag = this.tagRepository.create({ ...payload });
+      return await this.tagRepository.save(tag);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw new HttpException(error.getResponse(), error.getStatus());
+      }
+
+      throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async findByName(payload: TagDto) {
+    return await this.tagRepository.findOne({ where: { ...payload } });
   }
 
   async findAll() {
